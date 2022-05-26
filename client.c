@@ -11,14 +11,26 @@
   
 #define PORT 4444 
 #define BUF_SIZE 2000 
+
+
+int receive=1;
+int sendMessage=1;
   
 void * receiveMessage(void * socket) {
  int sockfd, ret;
  char buffer[BUF_SIZE]; 
  sockfd = (int) socket;
  memset(buffer, 0, BUF_SIZE);  
- while(1) {
+ while(receive) {
   ret = recvfrom(sockfd, buffer, BUF_SIZE, 0, NULL, NULL);  
+    if(strcmp(buffer,"quit\n")==0)
+  {
+    printf("Server is quitted!\n");
+    sendMessage=0;
+    close(sockfd);
+    pthread_exit(NULL);
+    exit(0);
+  }
   if (ret < 0) {  
    printf("Error receiving data!\n");   
   } else {
@@ -62,7 +74,7 @@ int main(int argc, char**argv) {
  printf("Connected to the server...\n");  
 
  memset(buffer, 0, BUF_SIZE);
- printf("Enter your messages one by one and press return key!\n");
+ printf("Enter your messages one by one and press return key! Enter 'quit' to quit.\n");
 
  //creating a new thread for receiving messages from the server
  ret = pthread_create(&rThread, NULL, receiveMessage, (void *) sockfd);
@@ -71,9 +83,24 @@ int main(int argc, char**argv) {
   exit(1);
  }
 
-
- while (fgets(buffer, BUF_SIZE, stdin) != NULL ) 
+//wait for an message and when it comes, send it to the server
+ while (fgets(buffer, BUF_SIZE, stdin) != NULL & sendMessage) 
  {
+     if(strcmp(buffer,"quit\n")==0)
+     {
+         printf("Client is shutting down.\n");
+         ret = sendto(sockfd, buffer, BUF_SIZE, 0, (struct sockaddr *) &addr, sizeof(addr));  
+         receive=0;
+         if (ret < 0) 
+         {  
+         printf("Error sending data!\n\t-%s", buffer);  
+         }
+     
+         close(sockfd);
+         pthread_exit(NULL);
+         exit(0);
+
+     }
   ret = sendto(sockfd, buffer, BUF_SIZE, 0, (struct sockaddr *) &addr, sizeof(addr));  
   if (ret < 0) {  
    printf("Error sending data!\n\t-%s", buffer);  
